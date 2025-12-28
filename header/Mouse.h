@@ -11,4 +11,6 @@ private:
 public:
     static bool mouseLeftClicked();
     static bool mouseRightClicked();
+    static bool mouseLeftPressed();
+    static bool mouseRightPressed();
 };
