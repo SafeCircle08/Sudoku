@@ -2,6 +2,12 @@
 #include <vector>
 #include <SFML/Graphics.hpp>
 
+struct INSERTION_CELL {
+    int num;
+    int timesInGrid;
+    bool finished;
+};
+
 enum FILL_WAYS {
     FILL_IN_COLUMN,
     FILL_IN_ROW,
@@ -15,6 +21,8 @@ enum DIFFICULTY {
     SUICIDE,
     IN_ASS_PAIN
 };
+
+inline std::vector<INSERTION_CELL> insertionCells;
 
 #define COLOR_WHITE sf::Color(255,255,255)
 #define COLOR_RED sf::Color(255,0,0)
@@ -65,12 +73,21 @@ private:
     void resetGrid();
     bool solveSudoku();
     void showSolution();
+    bool insertionCellIsFinished(INSERTION_CELL& cell);
+    void showInsertionCellInfo(INSERTION_CELL& cell) const;
+    int getTimeNumberIsInGrid(int numToCheck);
+    void updateInsertionCell();
+    void loadInsertionCells();
+    void manageFill();
 
     void printGrid() const;
     void drawVerticalLines(sf::Color col);
     void drawHorizontalLines(sf::Color col);
     void drawGrid(std::vector<std::vector<int>>& drawGrid, sf::Color col);
     void drawNumbers(std::vector<std::vector<int>>& drawnGrid, const sf::Font& font, sf::Color col);
+    void drawInsertionCells();
+    void insertNumber(int num);
+    bool numberInsertedIsCorrect(int num);
 
     int getSelectedRowIndex() const;
     int getSelectedColumnIndex() const;
@@ -80,13 +97,16 @@ private:
     bool mouseXPosIsWithinGrid(sf::Vector2i mousePos) const;
     bool mouseYPosIsWithinGrid(sf::Vector2i mousePos) const;
     bool mousePosIsWithinGrid(sf::Vector2i mousePos) const;
+    bool mouseIsWithinXCoordinates(int mouseMinXPos, int mouseMaxXPos) const;
+    bool mouseIsWithinYCoordinates(int mouseMinYPos, int mouseMaxYPos) const;
+    bool mousePosIsWithinCoordinates(sf::Vector2i minMousePos, sf::Vector2i maxMousePos) const;
 
     void hideCell(int row, int col);
     void hideCells(DIFFICULTY difficulty);
     int manageCellsToHideN(DIFFICULTY difficulty) const;
 
     sf::Vector2i selectCell(int row, int col);
-    void highligtCell(int row, int col);
+    void highligtCell(int col, int row);
     void highlightRow(int row);
     void highlightColumn(int col);
     void highlightNumbers();

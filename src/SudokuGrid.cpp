@@ -16,16 +16,13 @@ SudokuGrid::SudokuGrid(DIFFICULTY difficulty, sf::RenderWindow& window,
     this->GRID_LINE_X = (WINDOW.getSize().x - GRID_LINE_DIM) / 2;
     this->GRID_LINE_Y = (WINDOW.getSize().y - GRID_LINE_DIM) / 2 - 80;
 
-    switch (Random::getRandomInt(0, 1)) {
-        case FILL_IN_COLUMN: fillColumn(Random::getRandomInt(0, COLUMNS - 1)); break;
-        case FILL_IN_ROW: fillRow(Random::getRandomInt(0, ROWS - 1)); break;
-        default: break;
-    }
+    manageFill();
 
     solveSudoku();
     playerGrid = grid;
     hideCells(difficulty);
     drawnGrid = playerGrid;
+    loadInsertionCells();
 }
 
 //--------------------GETS--------------------
@@ -34,11 +31,17 @@ int SudokuGrid::getRows() { return ROWS; }
 int SudokuGrid::getBlockPxSize() { return PIXELS_BLOCK_SIZE; }
 const std::vector<std::vector<int>>& SudokuGrid::getDrawnGrid() const { return drawnGrid; }
 int SudokuGrid::getSelectedNumber() const {
-    return drawnGrid[selectedCell.y][selectedCell.x];
+    return drawnGrid[selectedCell.x][selectedCell.y];
 }
-
 void SudokuGrid::resetGrid() {
     for (auto &row : grid) std::fill(row.begin(), row.end(), 0);
+}
+void SudokuGrid::manageFill() {
+    switch (Random::getRandomInt(0, 1)) {
+        case FILL_IN_COLUMN: fillColumn(Random::getRandomInt(0, COLUMNS - 1)); break;
+        case FILL_IN_ROW: fillRow(Random::getRandomInt(0, ROWS - 1)); break;
+        default: break;
+    }
 }
 
 //--------------------CHECK UTILS--------------------
@@ -169,8 +172,102 @@ void SudokuGrid::drawGrid(std::vector<std::vector<int>>& drawnGrid, sf::Color co
     drawHorizontalLines(col);
     drawVerticalLines(col);
     drawNumbers(drawnGrid, FONT, col);
+    drawInsertionCells();
 }
 void SudokuGrid::showSolution() { drawnGrid = grid; }
+
+//--------------------MANAGE INSERTIONS--------------------
+bool SudokuGrid::numberInsertedIsCorrect(int num) {
+    if (grid[selectedCell.x][selectedCell.y] == num) { return true; }
+    return false;
+}
+void SudokuGrid::insertNumber(int num) {
+    if (numberInsertedIsCorrect(num)) {
+        playerGrid[selectedCell.x][selectedCell.y] = num;
+    } else {
+        std::cout << "The inserted number is invalid!" << std::endl;
+    }
+}
+void SudokuGrid::drawInsertionCells() {
+    sf::RectangleShape square{sf::Vector2f(PIXELS_BLOCK_SIZE, PIXELS_BLOCK_SIZE)};
+    square.setFillColor(sf::Color::Transparent);
+    square.setOutlineThickness(GRID_MAX_THICKNESS);
+    square.setOutlineColor(GRID_COLOR);
+
+    int characterSize = 30;
+    sf::Text squareNum(FONT);
+    squareNum.setFillColor(GRID_COLOR);
+    squareNum.setCharacterSize(characterSize);
+
+    for (int i = 1; i < 10; i++) {
+        int actualNum = i;
+        squareNum.setString(std::to_string(actualNum));
+        sf::FloatRect bounds = squareNum.getLocalBounds();
+
+        int padding = 7;
+        float squareX = (GRID_LINE_X - (PIXELS_BLOCK_SIZE / 2)) + ((PIXELS_BLOCK_SIZE + padding) * (i - 1));
+        float squareY = GRID_LINE_Y + GRID_LINE_DIM + padding * 5;
+        square.setPosition(sf::Vector2f(squareX, squareY));
+        squareNum.setPosition(sf::Vector2f(squareX + bounds.size.x + 7, squareY + bounds.size.y - 10));
+
+        WINDOW.draw(square);
+        WINDOW.draw(squareNum);
+    }
+}
+void SudokuGrid::updateInsertionCell() {
+    int padding = 7;
+    float squareY = GRID_LINE_Y + GRID_LINE_DIM + padding * 5;
+
+    for (int i = 1; i < 10; i++) {
+        float squareX = (GRID_LINE_X - (PIXELS_BLOCK_SIZE / 2)) + ((PIXELS_BLOCK_SIZE + padding) * (i - 1));
+        if (mousePosIsWithinCoordinates(
+            sf::Vector2i(squareX, squareY),
+            sf::Vector2i(sf::Vector2i(squareX + PIXELS_BLOCK_SIZE, squareY + PIXELS_BLOCK_SIZE)))
+        ) {
+            if (Mouse::mouseLeftClicked()) {
+                insertNumber(i);
+                INSERTION_CELL cell = insertionCells[i];
+                cell.timesInGrid = getTimeNumberIsInGrid(cell.num);
+                cell.finished = insertionCellIsFinished(cell);
+                showInsertionCellInfo(cell);
+            }
+            if (Mouse::mouseRightClicked()) {
+                INSERTION_CELL cell = insertionCells[i];
+                showInsertionCellInfo(cell);
+            }
+        }
+    }
+}
+bool SudokuGrid::insertionCellIsFinished(INSERTION_CELL& cell) {
+    if (cell.timesInGrid == 9) return true;
+    return false;
+}
+void SudokuGrid::showInsertionCellInfo(INSERTION_CELL &cell) const {
+    std::cout << "Cell Number: " << cell.num << std::endl;
+    std::cout << "Cell Times: " << cell.timesInGrid << std::endl;
+    std::cout << "Cell is Finished: " << cell.finished << std::endl;
+}
+int SudokuGrid::getTimeNumberIsInGrid(int numToCheck) {
+    int times = 0;
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLUMNS; j++) {
+            if (playerGrid[i][j] == numToCheck) {
+                if (++times == 9) return times;
+            }
+        }
+    }
+    return times;
+}
+void SudokuGrid::loadInsertionCells() {
+    for (int i = 0; i < COLUMNS; i++) {
+        INSERTION_CELL cell {
+            .num = i,
+            .timesInGrid = getTimeNumberIsInGrid(i),
+            .finished = insertionCellIsFinished(cell)
+        };
+        insertionCells.push_back(cell);
+    }
+}
 
 //--------------------MANAGE SELECTIONS--------------------
 int SudokuGrid::getSelectedRowIndex() const {
@@ -184,7 +281,7 @@ int SudokuGrid::getSelectedColumnIndex() const {
     return index;
 }
 sf::Vector2i SudokuGrid::selectCell(int row, int col) {
-    return  {row, col};
+    return  {col, row};
 }
 
 //--------------------MANAGE MOUSE--------------------
@@ -203,6 +300,20 @@ void SudokuGrid::manageMousePosition() {
     if (Mouse::mouseLeftClicked() && mousePosIsWithinGrid(sf::Mouse::getPosition(WINDOW))) {
         selectedCell = selectCell(rowIndexSelected, colIndexSelected);
     }
+}
+bool SudokuGrid::mouseIsWithinXCoordinates(int mouseMinXPos, int mouseMaxXPos) const {
+    sf::Vector2i mousePos = sf::Mouse::getPosition(WINDOW);
+    return (mousePos.x > mouseMinXPos && mousePos.x < mouseMaxXPos);
+}
+bool SudokuGrid::mouseIsWithinYCoordinates(int mouseMinYPos, int mouseMaxYPos) const {
+    sf::Vector2i mousePos = sf::Mouse::getPosition(WINDOW);
+    return (mousePos.y > mouseMinYPos && mousePos.y < mouseMaxYPos);
+}
+bool SudokuGrid::mousePosIsWithinCoordinates(sf::Vector2i minMousePos, sf::Vector2i maxMousePos) const {
+    return (
+        mouseIsWithinXCoordinates(minMousePos.x, maxMousePos.x) &&
+        mouseIsWithinYCoordinates(minMousePos.y, maxMousePos.y)
+    );
 }
 
 //--------------------MANAGE CELLS TO HIDE--------------------
@@ -255,7 +366,7 @@ void SudokuGrid::highlightColumn(int selectedCol) {
         WINDOW.draw(rect);
     }
 }
-void SudokuGrid::highligtCell(int selectedRow, int selectedCol) {
+void SudokuGrid::highligtCell(int selectedCol, int selectedRow) {
     highlightRow(selectedRow);
     highlightColumn(selectedCol);
 }
@@ -283,4 +394,5 @@ void SudokuGrid::updateGrid(sf::Color col) {
     drawnGrid = playerGrid;
     if (Mouse::mouseRightPressed()) { showSolution(); }
     drawGrid(drawnGrid, col);
+    updateInsertionCell();
 }
